@@ -1,0 +1,447 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{z-eves}
+\usepackage{framed}
+\usepackage{xspace}
+\usepackage{verbatimbox}
+\usepackage[parfill]{parskip}
+
+\newcommand{\desig}[2]{\item #1 $\approx #2$}
+\newenvironment{designations}
+  {\begin{leftbar}
+    \begin{list}{}{\setlength{\labelsep}{0cm}
+                   \setlength{\labelwidth}{0cm}
+                   \setlength{\listparindent}{0cm}
+                   \setlength{\rightmargin}{\leftmargin}}}
+  {\end{list}\end{leftbar}}
+
+\newcommand{\setlog}{$\{log\}$\xspace}
+\renewcommand{\figurename}{Figura}
+
+\title{Trabajo Práctico \\ Ingeniería de Software II}
+\author{Ignacio Cantore}
+\date{Licenciatura en Ciencias de la Computación \\ Facultad de Ciencias Exactas, Ingeniería y Agrimensura \\}
+
+\begin{document}
+
+\maketitle
+
+\section*{Requerimientos}
+Un consultorio odontológico necesita asignar turnos a sus pacientes.
+Para esto, primero deben estar registrados en el sistema, con su DNI y nombre completo. Luego, pueden elegir una fecha y hora para ser atendidos.
+Dado que algunos tratamientos suelen realizarse en varias sesiones, es frecuente que los pacientes tengan reservados varios turnos. \\
+
+Las operaciones requeridas son:
+
+\begin{itemize}
+    \item Alta y baja de pacientes
+    \item Alta y baja de turnos
+    \item Dado el DNI de un paciente, consultar los turnos que tiene asignados
+    \item Dadas una fecha y hora, consultar a qué paciente corresponde dicho turno
+\end{itemize}
+
+\section*{Especificación}
+
+Se dan las siguientes designaciones:
+
+\begin{designations}
+\desig{$d$ es el DNI de un paciente}{d \in DNI}
+\desig{$n$ es el nombre de un paciente}{n \in NOMBRE}
+\desig{$f$ es una fecha}{f \in FECHA}
+\desig{$h$ es una hora}{h \in HORA}
+\desig{El nombre del paciente con DNI $d$}{pacientes\ d}
+\desig{El DNI del paciente que tiene asignado un turno el dia $f$ en el horario $h$}{turnos\ (f, h)}
+\end{designations}
+
+Luego, se introducen los tipos a utilizar en la especificación:
+
+\begin{zed}
+[DNI, NOMBRE, FECHA, HORA]
+\end{zed}
+
+Se define el espacio de estados de la especificación y su estado inicial:
+
+\begin{schema}{Consultorio}
+turnos: FECHA \cross HORA \pfun DNI \\
+pacientes: DNI \pfun NOMBRE
+\end{schema}
+
+\begin{schema}{ConsultorioInit}
+Consultorio
+\where
+turnos = \emptyset \\
+pacientes = \emptyset
+\end{schema}
+
+Como todos los turnos asignados corresponden a un paciente registrado en el sistema, debe valer el siguiente invariante:
+
+\begin{schema}{ConsultorioInv}
+Consultorio
+\where
+\ran turnos \subseteq \dom pacientes
+\end{schema}
+
+Ahora se modelan las operaciones del sistema, empezando con la operación para agregar un paciente:
+
+\begin{schema}{AltaPacienteOk}
+\Delta Consultorio \\
+d?: DNI \\
+n?: NOMBRE
+\where
+d? \notin \dom pacientes \\
+pacientes' = pacientes \cup \{d? \mapsto n?\} \\
+turnos' = turnos
+\end{schema}
+
+\begin{schema}{PacienteYaExiste}
+\Xi Consultorio \\
+d?: DNI
+\where
+d? \in \dom pacientes
+\end{schema}
+
+\begin{zed}
+AltaPaciente == AltaPacienteOk \lor PacienteYaExiste
+\end{zed}
+
+Luego, la operación para dar de baja un paciente, considerando el caso en que el paciente aún tiene turnos asignados:
+
+\begin{schema}{BajaPacienteOk}
+\Delta Consultorio \\
+d?: DNI
+\where
+d? \in \dom pacientes \\
+d? \notin \ran turnos \\
+pacientes' = \{d?\} \ndres pacientes \\
+turnos' = turnos
+\end{schema}
+
+\begin{schema}{PacienteNoExiste}
+\Xi Consultorio \\
+d? : DNI
+\where
+d? \notin \dom pacientes
+\end{schema}
+
+\begin{schema}{PacienteTieneTurnos}
+\Xi Consultorio \\
+d? : DNI
+\where
+d? \in \ran turnos
+\end{schema}
+
+\begin{zed}
+BajaPaciente == BajaPacienteOk \lor PacienteNoExiste \lor PacienteTieneTurnos
+\end{zed}
+
+Por otro lado, la operación para asignar un turno a un paciente:
+
+\begin{schema}{AltaTurnoOk}
+\Delta Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d?: DNI
+\where
+d? \in \dom pacientes \\
+(f?,h?) \notin \dom turnos \\
+turnos' = turnos  \cup \{(f?,h?) \mapsto d?\} \\
+pacientes' = pacientes
+\end{schema}
+
+\begin{schema}{TurnoYaAsignado}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA
+\where
+(f?,h?) \in \dom turnos
+\end{schema}
+
+\begin{zed}
+AltaTurno == AltaTurnoOk \lor PacienteNoExiste \lor TurnoYaAsignado
+\end{zed}
+
+Y la operación para dar de baja un turno, teniendo en cuenta que se debe corroborar si el DNI brindado corresponde al turno en cuestión:
+
+\begin{schema}{BajaTurnoOk}
+\Delta Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d? : DNI
+\where
+(f?,h?) \in \dom turnos \\
+d? = turnos\ (f?,h?) \\
+turnos' = \{(f?,h?)\} \ndres turnos \\
+pacientes' = pacientes
+\end{schema}
+
+\begin{schema}{TurnoNoAsignado}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA
+\where
+(f?,h?) \notin \dom turnos
+\end{schema}
+
+\begin{schema}{TurnoNoCoincide}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d? : DNI
+\where
+(f?,h?) \in \dom turnos \\
+d? \neq turnos\ (f?,h?)
+\end{schema}
+
+\begin{zed}
+BajaTurno == BajaTurnoOk \lor TurnoNoAsignado \lor TurnoNoCoincide
+\end{zed}
+
+Además, se define una operación para consultar todos los turnos de un paciente, así como una para consultar el nombre del paciente que tiene asignado un turno dado:
+
+\begin{schema}{TurnosPaciente}
+\Xi Consultorio \\
+d? : DNI \\
+t! : FECHA \rel HORA
+\where
+t! = \dom (turnos \rres \{d?\})
+\end{schema}
+
+\begin{schema}{NombreTurnoOk}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+n! : NOMBRE
+\where
+(f?,h?) \in \dom turnos \\
+n! = pacientes\ (turnos\ (f?,h?))
+\end{schema}
+
+\begin{zed}
+NombreTurno == NombreTurnoOk \lor TurnoNoAsignado
+\end{zed}
+
+\section*{Simulaciones}
+
+\subsection*{Simulación no tipada}
+
+En la simulación se agrega un paciente al sistema, se le asigna un turno, se intenta borrar al paciente y se elimina el turno antes mencionado. Luego, se consultan los turnos de un paciente cuyo DNI no está en el sistema. Por último, se consulta el nombre del paciente de un turno no asignado:
+
+\begin{verbatim}
+    consultorioInit(T1,P1) &
+    altaPaciente(T1,P1,dni:d40140078,nombre:'IgnacioCantore',T2,P2) &
+    altaTurno(T2,P2,fecha:f010323,hora:h1030,dni:d40140078,T3,P3) &
+    bajaPaciente(T3,P3,dni:d40140078,T4,P4) &
+    bajaTurno(T4,P4,fecha:f010323,hora:h1030,dni:d40140078,T5,P5) &
+    turnosPaciente(T5,P5,dni:20016929,Turnos,T5,P5) &
+    nombreTurno(T5,P5,fecha:f050323,hora:h1500,Nombre,T5,P5).
+    
+\end{verbatim}
+
+Como puede observarse a continuación, la solución encontrada por \setlog es la esperada, donde en $P4$ no se borró al paciente del sistema ya que tiene un turno, $Turnos$ es vacío ya que no hay turnos asignados para el DNI dado, y para la variable $Nombre$ no se da un valor ya que para la fecha y hora dadas no hay un turno asignado.
+
+\begin{verbatim}
+    T1 = {},
+    P1 = {},
+    T2 = {},
+    P2 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T3 = {[[fecha:f010323,hora:h1030],dni:d40140078]},
+    P3 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T4 = {[[fecha:f010323,hora:h1030],dni:d40140078]},
+    P4 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T5 = {},
+    P5 = {[dni:d40140078,nombre:IgnacioCantore]},
+    Turnos = {}
+\end{verbatim}
+
+\subsection*{Simulación tipada}
+
+En la simulación se agrega un paciente al sistema, se le asignan dos turnos, se da de alta un segundo paciente, se intenta asignarle un turno que está reservado por el primer paciente, y se intenta eliminar el turno. Luego, se consulta el nombre del paciente correspondiente al turno antes mencionado. Por último, se consultan los turnos del primer paciente:
+
+\begin{verbatim}
+    consultorioInit(T1,P1) &
+    altaPaciente(T1,P1,dni:d40140078,nombre:'IgnacioCantore',T2,P2) &
+    altaTurno(T2,P2,fecha:f010323,hora:h1030,dni:d40140078,T3,P3) &
+    altaTurno(T3,P3,fecha:f100323,hora:h1215,dni:d40140078,T4,P4) &
+    altaPaciente(T4,P4,dni:d40769801,nombre:'EloyYachini',T5,P5) &
+    altaTurno(T5,P5,fecha:f010323,hora:h1030,dni:d40769801,T6,P6) &
+    bajaTurno(T6,P6,fecha:f010223,hora:h1030,dni:d20016425,T7,P7) &
+    nombreTurno(T7,P7,fecha:f010323,hora:h1030,Nombre,T7,P7) &
+    turnosPaciente(T7,P7,dni:d40140078,Turnos,T7,P7) &
+    dec([T1,T2,T3,T4,T5,T6,T7],tur) & dec([P1,P2,P3,P4,P5,P6,P7],pac) &
+    dec(Turnos,set(fh)) & dec(Nombre,nombre).
+\end{verbatim}
+
+Como puede observarse a continuación, la solución encontrada por \setlog es la esperada, donde en $T6$ no se agregó el turno ya que estaba reservado, y en $T7$ no se borró el turno porque el DNI brindado no corresponde al del turno.
+
+\begin{verbatim}
+    T1 = {},
+    P1 = {},
+    T2 = {},
+    P2 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T3 = {[[fecha:f010323,hora:h1030],dni:d40140078]},
+    P3 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T4 = {[[fecha:f010323,hora:h1030],dni:d40140078],
+          [[fecha:f100323,hora:h1215],dni:d40140078]},
+    P4 = {[dni:d40140078,nombre:IgnacioCantore]},
+    T5 = {[[fecha:f010323,hora:h1030],dni:d40140078],
+          [[fecha:f100323,hora:h1215],dni:d40140078]},
+    P5 = {[dni:d40140078,nombre:IgnacioCantore],
+          [dni:d40769801,nombre:EloyYachini]},
+    T6 = {[[fecha:f010323,hora:h1030],dni:d40140078],
+          [[fecha:f100323,hora:h1215],dni:d40140078]},
+    P6 = {[dni:d40140078,nombre:IgnacioCantore],
+          [dni:d40769801,nombre:EloyYachini]},
+    T7 = {[[fecha:f010323,hora:h1030],dni:d40140078],
+          [[fecha:f100323,hora:h1215],dni:d40140078]},
+    P7 = {[dni:d40140078,nombre:IgnacioCantore],
+          [dni:d40769801,nombre:EloyYachini]},
+    Nombre = nombre:IgnacioCantore,
+    Turnos = {[fecha:f010323,hora:h1030],[fecha:f100323,hora:h1215]}
+\end{verbatim}
+
+\section*{Demostraciones con \setlog}
+
+\paragraph{Primera demostración con \setlog.}
+
+Se demuestra que $BajaPaciente$ preserva el invariante $ConsultorioInv$, lo cual equivale al siguiente teorema:
+
+\begin{theorem}{BajaPacientePI}
+    ConsultorioInv \land BajaPaciente \implies ConsultorioInv'
+\end{theorem}
+
+cuya negación se escribe en \setlog de la siguiente manera:
+
+\begin{verbatim}
+    dec([T,T_],tur) & dec([P,P_],pac) & dec(D,dni) &
+    consultorioInv(T,P) &
+    bajaPaciente(T,P,D,T_,P_) &
+    dec([D1,D2],set(dni)) & ran(T_,D1) & dom(P_,D2) & nsubset(D1,D2).
+\end{verbatim}
+
+Como \setlog no encuentra ninguna solución, la fórmula es insatisfacible, lo que demuestra que $BajaPaciente$ preserva el invariante $ConsultorioInv$
+
+\paragraph{Segunda demostración con \setlog.}
+
+Se demuestra que $AltaTurno$ preserva el invariante $turnos \in \_ \pfun \_$, es decir:
+
+\begin{theorem}{TurnosIsPFun}
+    turnos \in \_ \pfun \_ \land AltaTurno \implies turnos' \in \_ \pfun \_
+\end{theorem}
+
+cuya negación se escribe en \setlog de la siguiente manera:
+
+\begin{verbatim}
+    dec([T1,T2],tur) & dec([P1,P2],pac) & dec(F,fecha) &
+    dec(H,hora) & dec(D,dni) &
+    pfun(T1) &
+    altaTurno(T1,P1,F,H,D,T2,P2) &
+    npfun(T2).
+\end{verbatim}
+
+Como \setlog no encuentra ninguna solución, la fórmula es insatisfacible, lo que demuestra que $AltaTurno$ preserva el invariante $turnos \in \_ \pfun \_$
+
+\section*{Demostración con Z/EVES}
+
+Se demuestra que $AltaPaciente$ preserva el invariante $ConsultorioInv$, lo cual equivale al siguiente teorema:
+
+\begin{theorem}{AltaPacientePI}
+    ConsultorioInv \land AltaPaciente \implies ConsultorioInv'
+\end{theorem}
+
+\begin{zproof}[AltaPacientePI]
+invoke AltaPaciente;
+split AltaPacienteOk;
+cases;
+prove by reduce;
+next;
+prove by reduce;
+next;
+\end{zproof}
+
+El comando \verb|invoke| reemplaza $AltaPaciente$ en el antecedente por su definición. Luego, \verb|split AltaPacienteOk| genera dos casos: uno donde se satisfacen las condiciones de $AltaPacienteOk$ y otro donde no. \verb|cases| separa estos casos para poder demostrarlos individualmente. El primer caso se demuestra usando \verb|prove by reduce|. Luego, se avanza al segundo caso con \verb|next|. Se procede nuevamente con \verb|prove by reduce|. Finalmente, el comando \verb|next| intenta avanzar al siguiente caso, y al no haber más se completa la prueba.
+
+\section*{Casos de prueba}
+
+Se generan casos de prueba para la operación $BajaTurno$, para lo cual se utilizan los siguientes comandos de Fastest:
+
+\begin{verbatim}
+    loadspec fastest.tex
+    selop BajaTurno
+    genalltt
+    addtactic BajaTurno_DNF_1 SP \ndres \{(f?,h?)\} \ndres turnos
+    genalltt
+    genalltca
+    showtt
+    showsch -tca
+\end{verbatim}
+
+Es decir, se carga la especificación, se selecciona la operación y se genera el árbol de pruebas, el cual aplica la táctica de testing FND. Ésta la separa en tres clases: $BajaTurno\_DNF\_1$, $BajaTurno\_DNF\_2$ y $BajaTurno\_DNF\_3$, las cuales corresponden a $BajaTurnoOk$, $TurnoNoAsignado$ y $TurnoNoCoincide$, respectivamente.
+
+Luego, se agrega la táctica de Particiones Estándar para el operador $\ndres$ sobre la expresión $\{(f?,h?)\} \ndres turnos$ en $BajaTurno\_DNF\_1$. Se genera nuevamente el árbol para aplicar esta táctica, y se generan los casos de prueba, además de podar las clases de prueba insatisfacibles.
+
+Finalmente, con \verb|showtt| se puede ver el árbol de pruebas generado, donde las hojas corresponden a los casos de prueba generados:
+
+\begin{verbatim}
+    BajaTurno_VIS
+  !______BajaTurno_DNF_1
+  |	  !______BajaTurno_SP_3
+  |	  |	  !______BajaTurno_SP_3_TCASE
+  |	  |
+  |	  !______BajaTurno_SP_4
+  |	  	  !______BajaTurno_SP_4_TCASE
+  |	
+  |
+  !______BajaTurno_DNF_2
+  |	  !______BajaTurno_DNF_2_TCASE
+  |
+  !______BajaTurno_DNF_3
+  	  !______BajaTurno_DNF_3_TCASE
+\end{verbatim}
+
+Y con \verb|showsch -tca| se obtienen los esquemas Z correspondientes a los casos de prueba generados:
+
+\begin{schema}{BajaTurno\_ SP\_ 3\_ TCASE}\\
+ BajaTurno\_ SP\_ 3 
+\where
+ f? = fECHA1 \\
+ h? = hORA2 \\
+ pacientes =~\emptyset \\
+ turnos = \{ ( ( fECHA1 \mapsto hORA2 ) \mapsto dNI3 ) \} \\
+ d? = dNI3
+\end{schema}
+
+\begin{schema}{BajaTurno\_ SP\_ 4\_ TCASE}\\
+ BajaTurno\_ SP\_ 4 
+\where
+ f? = fECHA1 \\
+ h? = hORA2 \\
+ pacientes =~\emptyset \\
+ turnos = \{ ( ( fECHA1 \mapsto hORA2 ) \mapsto dNI3 ) , ( ( fECHA1 \mapsto hORA4 ) \mapsto dNI5 ) \} \\
+ d? = dNI3
+\end{schema}
+
+\begin{schema}{BajaTurno\_ DNF\_ 2\_ TCASE}\\
+ BajaTurno\_ DNF\_ 2 
+\where
+ f? = fECHA1 \\
+ h? = hORA2 \\
+ pacientes =~\emptyset \\
+ turnos =~\emptyset \\
+ d? = dNI3
+\end{schema}
+
+\begin{schema}{BajaTurno\_ DNF\_ 3\_ TCASE}\\
+ BajaTurno\_ DNF\_ 3 
+\where
+ f? = fECHA3 \\
+ h? = hORA1 \\
+ pacientes =~\emptyset \\
+ turnos = \{ ( ( fECHA1 \mapsto hORA1 ) \mapsto dNI2 ) \} \\
+ d? = dNI1
+\end{schema}
+
+\end{document}

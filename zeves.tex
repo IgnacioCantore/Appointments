@@ -1,0 +1,180 @@
+\begin{zed}
+[DNI, NOMBRE, FECHA, HORA]
+\end{zed}
+
+\begin{schema}{Consultorio}
+turnos: (FECHA \cross HORA) \pfun DNI \\
+pacientes: DNI \pfun NOMBRE
+\end{schema}
+
+\begin{schema}{ConsultorioInit}
+Consultorio
+\where
+turnos = \emptyset \\
+pacientes = \emptyset
+\end{schema}
+
+\begin{schema}{ConsultorioInv}
+Consultorio
+\where
+\ran turnos \subseteq \dom pacientes
+\end{schema}
+
+\begin{schema}{AltaPacienteOk}
+\Delta Consultorio \\
+d?: DNI \\
+n?: NOMBRE
+\where
+d? \notin \dom pacientes \\
+pacientes' = pacientes \cup \{d? \mapsto n?\} \\
+turnos' = turnos
+\end{schema}
+
+\begin{schema}{PacienteYaExiste}
+\Xi Consultorio \\
+d?: DNI
+\where
+d? \in \dom pacientes
+\end{schema}
+
+\begin{zed}
+AltaPaciente \defs AltaPacienteOk \lor PacienteYaExiste
+\end{zed}
+
+\begin{schema}{BajaPacienteOk}
+\Delta Consultorio \\
+d?: DNI
+\where
+d? \in \dom pacientes \\
+d? \notin \ran turnos \\
+pacientes' = \{d?\} \ndres pacientes \\
+turnos' = turnos
+\end{schema}
+
+\begin{schema}{PacienteNoExiste}
+\Xi Consultorio \\
+d? : DNI
+\where
+d? \notin \dom pacientes
+\end{schema}
+
+\begin{schema}{PacienteTieneTurnos}
+\Xi Consultorio \\
+d? : DNI
+\where
+d? \in \ran turnos
+\end{schema}
+
+\begin{zed}
+BajaPaciente \defs BajaPacienteOk \lor PacienteNoExiste \lor PacienteTieneTurnos
+\end{zed}
+
+\begin{schema}{AltaTurnoOk}
+\Delta Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d?: DNI
+\where
+d? \in \dom pacientes \\
+(f?,h?) \notin \dom turnos \\
+turnos' = turnos  \cup \{(f?,h?) \mapsto d?\} \\
+pacientes' = pacientes
+\end{schema}
+
+\begin{schema}{TurnoYaAsignado}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA
+\where
+(f?,h?) \in \dom turnos
+\end{schema}
+
+\begin{zed}
+AltaTurno \defs AltaTurnoOk \lor PacienteNoExiste \lor TurnoYaAsignado
+\end{zed}
+
+\begin{schema}{BajaTurnoOk}
+\Delta Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d? : DNI
+\where
+(f?,h?) \in \dom turnos \\
+d? = turnos\ (f?,h?) \\
+turnos' = \{(f?,h?)\} \ndres turnos \\
+pacientes' = pacientes
+\end{schema}
+
+\begin{schema}{TurnoNoAsignado}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA
+\where
+(f?,h?) \notin \dom turnos
+\end{schema}
+
+\begin{schema}{TurnoNoCoincide}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+d? : DNI
+\where
+(f?,h?) \in \dom turnos \\
+d? \neq turnos\ (f?,h?)
+\end{schema}
+
+\begin{zed}
+BajaTurno \defs BajaTurnoOk \lor TurnoNoAsignado \lor TurnoNoCoincide
+\end{zed}
+
+\begin{schema}{TurnosPaciente}
+\Xi Consultorio \\
+d? : DNI \\
+t! : FECHA \rel HORA
+\where
+t! = \dom (turnos \rres \{d?\})
+\end{schema}
+
+\begin{schema}{NombreTurnoOk}
+\Xi Consultorio \\
+f? : FECHA \\
+h? : HORA \\
+n! : NOMBRE
+\where
+(f?,h?) \in \dom turnos \\
+n! = pacientes\ (turnos\ (f?,h?))
+\end{schema}
+
+\begin{zed}
+NombreTurno \defs NombreTurnoOk \lor TurnoNoAsignado
+\end{zed}
+
+\begin{theorem}{AltaPacientePI}
+ConsultorioInv \land AltaPaciente \implies ConsultorioInv'
+\end{theorem}
+
+\begin{zproof}[AltaPacientePI]
+invoke AltaPaciente;
+split AltaPacienteOk;
+cases;
+prove by reduce;
+next;
+prove by reduce;
+next;
+\end{zproof}
+
+\begin{theorem}{AltaTurnoPI}
+ConsultorioInv \land AltaTurno \implies ConsultorioInv'
+\end{theorem}
+
+\begin{zproof}[AltaTurnoPI]
+invoke AltaTurno;
+split AltaTurnoOk;
+cases;
+prove by reduce;
+next;
+prove by reduce;
+apply inPower;
+instantiate e == d?;
+next;
+\end{zproof}
